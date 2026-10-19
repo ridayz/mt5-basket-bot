@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# state runtime (config lokal + riwayat basket) — jangan di-commit
+state.json

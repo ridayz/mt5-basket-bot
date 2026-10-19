@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MT5 Basket Bot — Dashboard</title>
+<style>
+:root{
+  --bg:#0b0f14; --surface:#121821; --surface-2:#0e131c; --line:rgba(255,255,255,.08);
+  --text:#e8edf4; --muted:#8b96a5; --accent:#9dff5c; --accent-ink:#0b0f14;
+  --red:#ff5c5c; --amber:#ffc85c; --blue:#5cb0ff; --green:#5cff9d;
+  --radius:14px; --radius-s:9px; --mono:ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,'Segoe UI',Roboto,sans-serif;padding:16px;max-width:1180px;margin:0 auto}
+.grid{display:grid;gap:12px}
+.row{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+h1{font-size:18px;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+.k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.big{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.on{background:var(--green);box-shadow:0 0 8px rgba(92,255,157,.7)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.badge.demo{color:var(--blue);border-color:rgba(92,176,255,.4)}
+.badge.live{color:#fff;background:var(--red);border-color:transparent}
+.badge.run{color:var(--accent);border-color:rgba(157,255,92,.4)}
+.badge.stop{color:var(--muted)}
+.pos{color:var(--green)} .neg{color:var(--red)} .flat{color:var(--muted)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);color:var(--text);padding:9px 16px;border-radius:var(--radius-s);transition:filter .15s,transform .05s}
+button:hover{filter:brightness(1.15)} button:active{transform:translateY(1px)}
+button.primary{background:var(--accent);color:var(--accent-ink);font-weight:700;border-color:transparent}
+button.danger{background:var(--red);color:#fff;font-weight:700;border-color:transparent}
+button.ghost{background:transparent}
+button.on{outline:2px solid rgba(157,255,92,.5)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select{font:inherit;background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:var(--radius-s);width:100%}
+input:focus,select:focus{outline:2px solid rgba(157,255,92,.35);outline-offset:1px}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
+.fields{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{color:var(--muted);font-size:11px;text-align:left;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+.bar{height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);width:0%;transition:width .4s}
+.week{display:grid;gap:8px}
+.wrow{display:grid;grid-template-columns:70px 70px 96px 96px;gap:8px;align-items:center}
+.log{font-family:var(--mono);font-size:12px;max-height:190px;overflow:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-s);padding:8px 10px}
+.log div{padding:2px 0;border-bottom:1px dashed rgba(255,255,255,.04)}
+.log .err{color:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9}
+.modal .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;max-width:440px;width:92%}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--line);padding:10px 18px;border-radius:var(--radius-s);opacity:0;transition:all .25s;z-index:10;pointer-events:none;max-width:90%}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.warn{color:var(--amber)}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+@media (max-width:640px){.wrow{grid-template-columns:64px 60px 84px 84px}.big{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <h1 style="margin-right:auto"><span class="dot" id="conn-dot"></span> MT5 Basket Bot
+      <span class="badge stop" id="badge-running">—</span>
+      <span class="badge demo" id="badge-mode">—</span>
+    </h1>
+    <span class="k">Trend <b id="trend" class="flat">—</b></span>
+    <button id="btn-refresh-sym" class="ghost">⟳ Muat daftar pair</button>
+  </div>
+
+  <div style="color:var(--muted);font-size:13px" id="conn-msg">Cek koneksi MT5…</div>
+
+  <div class="row">
+    <div class="card"><div class="k">Akun</div><div id="acc-login" class="big" style="font-size:17px">—</div><div class="k" id="acc-srv"></div></div>
+    <div class="card"><div class="k">Equity</div><div id="acc-equity" class="big">—</div></div>
+    <div class="card"><div class="k">Balance</div><div id="acc-balance" class="big">—</div></div>
+    <div class="card"><div class="k">Floating basket</div><div id="basket-float" class="big flat">—</div><div class="k" id="basket-info"></div></div>
+  </div>
+
+  <div class="row" style="grid-template-columns:2fr 1fr;minmax(0,1fr)">
+    <div class="card">
+      <div class="k" style="margin-bottom:8px">Kontrol bot</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="primary" id="btn-start">▶ START BOT</button>
+        <button class="danger" id="btn-stop">■ STOP</button>
+        <button class="danger ghost" id="btn-panic" style="border:1px solid rgba(255,92,92,.5)">☠ PANIC close all</button>
+      </div>
+      <div style="margin-top:10px" class="k" id="sched-now">Jadwal: —</div>
+      <div class="k warn" id="mode-warn" style="margin-top:4px"></div>
+    </div>
+    <div class="card">
+      <div class="k">Progress ke TP basket</div>
+      <div class="bar" style="margin-top:10px"><i id="tp-bar"></i></div>
+      <div class="progress-label"><span id="tp-now">$0.00</span><span id="tp-next"></span></div>
+    </div>
+  </div>
+
+  <div class="row" style="grid-template-columns:1fr 1fr;minmax(0,1fr)">
+    <div class="card">
+      <div class="k">Posisi basket <span id="pos-count"></span></div>
+      <table>
+        <thead><tr><th>#</th><th>Tipe</th><th>Lot</th><th>Entry</th><th>Current</th><th>P/L $</th></tr></thead>
+        <tbody id="pos-body"><tr><td colspan="6" style="color:var(--muted)">— kosong —</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="k">Basket log (dari state.json)</div>
+      <table>
+        <thead><tr><th>Waktu</th><th>Pair</th><th>Layer</th><th>Profit $</th><th>Alasan</th></tr></thead>
+        <tbody id="blog-body"><tr><td colspan="5" style="color:var(--muted)">— belum ada —</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="k" style="margin-bottom:10px">Pengaturan</div>
+
+    <div class="row" style="margin-bottom:10px">
+      <div><label>Pair</label><select id="cfg-symbol"><option value="">— muat daftar dulu —</option></select></div>
+      <div><label>Timeframe tren</label><select id="cfg-timeframe">
+        <option>M1</option><option>M5</option><option selected>M15</option><option>M30</option><option>H1</option><option>H4</option></select></div>
+      <div><label>Mode</label><div style="display:flex;gap:8px">
+        <button id="btn-mode-demo" class="ghost on">DEMO</button>
+        <button id="btn-mode-live" class="ghost" style="border-color:rgba(255,92,92,.5);color:var(--red)">LIVE</button>
+      </div></div>
+    </div>
+
+    <div class="fields" style="margin-bottom:10px">
+      <div><label>Lot awal</label><input id="cfg-initial_lot" type="number" step="0.01" min="0.01" value="0.01"></div>
+      <div><label>Multiplier</label><input id="cfg-multiplier" type="number" step="0.1" min="1" value="1.5"></div>
+      <div><label>Max layer (guard)</label><input id="cfg-max_layers" type="number" step="1" min="2" max="20" value="6"></div>
+      <div><label>TP basket $</label><input id="cfg-tp_basket_usd" type="number" step="1" min="1" value="10"></div>
+      <div><label>Kill-switch $</label><input id="cfg-killswitch_usd" type="number" step="10" min="10" value="150"></div>
+      <div><label>Step harga (0=auto)</label><input id="cfg-step_price" type="number" step="0.0001" min="0" value="0"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap">
+      <button id="btn-save-cfg" class="primary">💾 Simpan pengaturan</button>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;color:var(--text);cursor:pointer">
+        <input id="cfg-schedule_enabled" type="checkbox" style="width:auto"> Jam kerja aktif (uncheck = 24 jam)
+      </label>
+    </div>
+
+    <div class="k" style="margin:6px 0">Jam kerja per hari — di luar jam: gak ada entry baru, basket tetap dikelola (TP/kill tetap jalan)</div>
+    <div class="week" id="week"></div>
+  </div>
+
+  <div class="card">
+    <div class="k" style="margin-bottom:8px">Log server</div>
+    <div class="log" id="logs"></div>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+var STATUS = null;
+var WEEKDAYS = {mon:'Senin', tue:'Selasa', wed:'Rabu', thu:'Kamis', fri:'Jumat', sat:'Sabtu', sun:'Minggu'};
+var SYMS = [];
+
+function $(id){ return document.getElementById(id); }
+function toastErr(msg, isErr){
+  var t=$('toast'); t.textContent=msg; t.style.borderColor=isErr?'var(--red)':'var(--line)';
+  t.classList.add('show'); clearTimeout(toastErr._t);
+  toastErr._t=setTimeout(function(){ t.classList.remove('show'); },2600);
+}
+function apiGet(p){ return fetch(p).then(function(r){ return r.json(); }); }
+function apiPost(p, body){ return fetch(p, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})}).then(function(r){ return r.json(); }); }
+function fmt$(v){ return '$'+Number(v||0).toFixed(2); }
+function colorCls(v){ return v>0?'pos':(v<0?'neg':'flat'); }
+function isEditing(){ var a=document.activeElement; return a && (a.tagName==='INPUT'||a.tagName==='SELECT'); }
+
+function setModal(html){
+  var root=$('modal-root');
+  root.innerHTML = html ? '<div class="modal"><div class="box">'+html+'</div></div>' : '';
+  if(html){
+    var back=root.querySelector('.modal');
+    back.addEventListener('click', function(e){ if(e.target===back) setModal(null); });
+  }
+  return root.querySelector('.box');
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  var s=STATUS; if(!s) return;
+  $('conn-dot').className = 'dot'+(s.connect?' on':'');
+  $('conn-msg').textContent = s.connect
+    ? (s.algo_allowed===false
+        ? '⚠ Algo Trading OFF di MT5 — nyalakan tombol "Algo Trading" di toolbar terminal!'
+        : 'MT5 terhubung · '+(s.account?s.account.server:''))
+    : 'MT5 belum terhubung — '+ (s.error || 'klik ▶ START atau ⟳ Muat daftar pair untuk nyambung');
+  $('badge-running').textContent = s.running?'RUNNING':'STOP';
+  $('badge-running').className = 'badge '+(s.running?'run':'stop');
+  var live = s.mode==='live';
+  $('badge-mode').textContent = live?'LIVE':'DEMO';
+  $('badge-mode').className = 'badge '+(live?'live':'demo');
+  $('btn-mode-demo').className='ghost'+(live?'':' on');
+  $('btn-mode-live').className='ghost'+(live?' on':'');
+  $('mode-warn').textContent = live ? '⚠ LIVE: uang beneran, tanpa SL — kill-switch $'+s.config.killswitch_usd+' satu-satunya rem' : '';
+  var tr={'up':'▲ UP','down':'▼ DOWN','flat':'— flat'}[s.trend]||'—';
+  $('trend').textContent=tr;
+  $('trend').className = s.trend==='up'?'pos':(s.trend==='down'?'neg':'flat');
+  if(s.account){
+    $('acc-login').textContent='#'+s.account.login+' '+(s.account.trade_mode===0?'DEMO':'REAL');
+    $('acc-srv').textContent=s.account.name+' · '+s.account.server;
+    $('acc-equity').textContent=fmt$(s.account.equity)+' '+s.account.currency;
+    $('acc-balance').textContent=fmt$(s.account.balance);
+  }
+  var f=s.basket.floating;
+  $('basket-float').textContent=fmt$(f); $('basket-float').className='big '+colorCls(f);
+  $('basket-info').textContent=s.basket.count+' layer · '+s.basket.lots+' lot · avg '+(s.basket.avg==null?'—':s.basket.avg);
+  $('pos-count').textContent=s.basket.count?('('+s.basket.count+')'):'';
+  var tb=$('pos-body');
+  if(!s.basket.positions.length){
+    tb.innerHTML='<tr><td colspan="6" style="color:var(--muted)">— kosong —</td></tr>';
+  } else {
+    tb.innerHTML=s.basket.positions.map(function(p,i){
+      return '<tr><td>'+(i+1)+'</td><td>'+p.type+'</td><td>'+p.lot+'</td><td>'+p.open+'</td>'
+        +'<td>'+(+p.cur).toFixed(5)+'</td><td class="'+colorCls(p.profit)+'">'+fmt$(p.profit)+'</td></tr>';
+    }).join('');
+  }
+  var f2=s.basket.floating, tp=s.config.tp_basket_usd;
+  var pct=(s.basket.tp_progress==null?0:Math.max(0,Math.min(1,s.basket.tp_progress)))*100;
+  $('tp-bar').style.width=pct+'%';
+  $('tp-now').textContent=fmt$(f2)+' / target '+fmt$(tp);
+  $('tp-next').textContent=s.basket.next_layer_lot?('next layer lot: '+s.basket.next_layer_lot):'max layer';
+  $('sched-now').textContent='Jadwal: '+(s.schedule.ok?'✅ dalam jam':'⛔ luar jam')+' — '+s.schedule.text;
+
+  if(!isEditing()) fillForm(s.config);
+
+  var lg=$('logs');
+  if(lg && !lg.contains(document.activeElement)){
+    lg.innerHTML=(s.logs||[]).map(function(l){ return '<div class="'+(l.err?'err':'')+'">'+l.at+' — '+l.msg+'</div>'; }).join('') || '<div>—</div>';
+  }
+}
+
+function fillForm(c){
+  if(!SYMS.length && c.symbol){ ensureSymbolInList(c.symbol); }
+  $('cfg-symbol').value=c.symbol||'';
+  $('cfg-timeframe').value=c.timeframe;
+  $('cfg-initial_lot').value=c.initial_lot;
+  $('cfg-multiplier').value=c.multiplier;
+  $('cfg-max_layers').value=c.max_layers;
+  $('cfg-tp_basket_usd').value=c.tp_basket_usd;
+  $('cfg-killswitch_usd').value=c.killswitch_usd;
+  $('cfg-step_price').value=c.step_price;
+  $('cfg-schedule_enabled').checked=!!c.schedule_enabled;
+  fillWeek(c.week);
+}
+
+var weekBuilt=false;
+var WKINPUTS={};
+function buildWeek(){
+  if(weekBuilt) return;
+  var w=$('week'); w.innerHTML='';
+  Object.keys(WEEKDAYS).forEach(function(d){
+    var row=document.createElement('div'); row.className='wrow';
+    row.innerHTML='<span class="k">'+WEEKDAYS[d]+'</span>'
+      +'<label style="margin:0;display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" data-w="'+d+'" data-k="off" style="width:auto"> off</label>'
+      +'<input type="time" data-w="'+d+'" data-k="start" value="09:00">'
+      +'<input type="time" data-w="'+d+'" data-k="end" value="23:00">';
+    w.appendChild(row);
+  });
+  w.querySelectorAll('input[data-w]').forEach(function(inp){
+    WKINPUTS[inp.getAttribute('data-w')+'.'+inp.getAttribute('data-k')]=inp;
+  });
+  weekBuilt=true;
+}
+function fillWeek(week){
+  buildWeek();
+  Object.keys(WEEKDAYS).forEach(function(d){
+    var wd=(week||{})[d]||{};
+    var off=WKINPUTS[d+'.off'], st=WKINPUTS[d+'.start'], en=WKINPUTS[d+'.end'];
+    off.checked=!!wd.off; 
+    if(document.activeElement!==st) st.value=wd.start||'09:00';
+    if(document.activeElement!==en) en.value=wd.end||'23:00';
+  });
+}
+function collectConfig(){
+  var week={};
+  Object.keys(WEEKDAYS).forEach(function(d){
+    week[d]={'off':WKINPUTS[d+'.off'].checked,'start':WKINPUTS[d+'.start'].value||'09:00','end':WKINPUTS[d+'.end'].value||'23:00'};
+  });
+  return {
+    symbol:$('cfg-symbol').value, timeframe:$('cfg-timeframe').value,
+    initial_lot:+$('cfg-initial_lot').value, multiplier:+$('cfg-multiplier').value,
+    max_layers:+$('cfg-max_layers').value, tp_basket_usd:+$('cfg-tp_basket_usd').value,
+    killswitch_usd:+$('cfg-killswitch_usd').value, step_price:+$('cfg-step_price').value,
+    schedule_enabled:$('cfg-schedule_enabled').checked, week:week
+  };
+}
+function ensureSymbolInList(sym){
+  var sel=$('cfg-symbol');
+  if(sym && !sel.querySelector('option[value="'+sym+'"]')){
+    var o=document.createElement('option'); o.value=sym; o.textContent=sym; sel.appendChild(o);
+  }
+}
+
+/* ---------------- aksi ---------------- */
+function pollStatus(){
+  apiGet('/api/status').then(function(s){ STATUS=s; render(); }).catch(function(){ /* server tidur */ });
+}
+function loadSymbols(){
+  toastErr('Memuat daftar pair…');
+  apiGet('/api/symbols').then(function(r){
+    if(!r.ok){ toastErr(r.error||'Gagal muat simbol', true); return; }
+    SYMS=r.items||[];
+    var sel=$('cfg-symbol'), cur=sel.value;
+    sel.innerHTML='<option value="">— pilih pair —</option>'+SYMS.map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('');
+    ensureSymbolInList(cur); sel.value=cur;
+    toastErr(SYMS.length+' pair termuat ✅');
+  });
+}
+function bindEvents(){
+  $('btn-refresh-sym').addEventListener('click', loadSymbols);
+
+  $('btn-start').addEventListener('click', function(){
+    apiPost('/api/control', {action:'start'}).then(function(r){
+      if(!r.ok) toastErr(r.error, true); else { toastErr('Bot START ▶'); if(!$('cfg-symbol').value) loadSymbols(); }
+      pollStatus();
+    });
+  });
+  $('btn-stop').addEventListener('click', function(){
+    apiPost('/api/control', {action:'stop'}).then(function(r){
+      toastErr(r.ok?'Bot STOP ■':r.error, !r.ok); pollStatus();
+    });
+  });
+  $('btn-panic').addEventListener('click', function(){
+    var box=setModal(
+      '<h3 style="margin-bottom:8px">☠ PANIC close all</h3>'
+      +'<p style="color:var(--muted);margin-bottom:12px">Semua posisi basket (tanda bot) langsung ditutup sekarang, profit minus kecil/besar terima jadi. Bot juga akan STOP.</p>'
+      +'<label>ketik <b>PANIK</b> buat konfirmasi</label>'
+      +'<input id="panic-confirm" autocomplete="off">'
+      +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
+      +'<button class="ghost" id="panic-cancel">Batal</button>'
+      +'<button class="danger" id="panic-ok">Tutup semua</button></div>');
+    box.querySelector('#panic-cancel').addEventListener('click', function(){ setModal(null); });
+    box.querySelector('#panic-ok').addEventListener('click', function(){
+      if(box.querySelector('#panic-confirm').value.trim().toUpperCase()!=='PANIK'){ toastErr('Ketik PANIK dulu', true); return; }
+      apiPost('/api/panic').then(function(r){ toastErr(r.ok?'Panic close selesai':r.error, !r.ok); setModal(null); pollStatus(); });
+    });
+    box.querySelector('#panic-confirm').focus();
+  });
+
+  $('btn-mode-demo').addEventListener('click', function(){
+    apiPost('/api/mode', {mode:'demo'}).then(function(r){ if(r.ok) toastErr('Mode: DEMO'); pollStatus(); });
+  });
+  $('btn-mode-live').addEventListener('click', function(){
+    var box=setModal(
+      '<h3 style="margin-bottom:8px;color:var(--red)">⚠ Ganti mode: LIVE</h3>'
+      +'<p style="color:var(--muted);margin-bottom:12px">Uang beneran, tanpa SL/TP per posisi — TP basket $ & kill-switch satu-satunya batas. Pastikan akun REAL yang terbuka di MT5.</p>'
+      +'<label>ketik <b>LIVE</b> buat konfirmasi</label>'
+      +'<input id="live-confirm" autocomplete="off">'
+      +'<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">'
+      +'<button class="ghost" id="live-cancel">Batal</button>'
+      +'<button class="danger" id="live-ok">Ya, mode LIVE</button></div>');
+    box.querySelector('#live-cancel').addEventListener('click', function(){ setModal(null); });
+    box.querySelector('#live-ok').addEventListener('click', function(){
+      var v=box.querySelector('#live-confirm').value.trim();
+      apiPost('/api/mode', {mode:'live', confirm:v}).then(function(r){
+        if(r.need_confirm){ toastErr('Ketik LIVE persis buat konfirmasi', true); return; }
+        if(r.ok) toastErr('Mode: LIVE 🛑'); else toastErr(r.error, true);
+        setModal(null); pollStatus();
+      });
+    });
+    box.querySelector('#live-confirm').focus();
+  });
+
+  $('btn-save-cfg').addEventListener('click', function(){
+    apiPost('/api/config', collectConfig()).then(function(r){
+      if(r.ok){ toastErr('Pengaturan disimpan ✅'); } else toastErr(r.error, true);
+      pollStatus();
+    });
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape') setModal(null);
+  });
+}
+
+function init(){
+  buildWeek();
+  bindEvents();
+  pollStatus();
+  setInterval(pollStatus, 2000);
+  apiGet('/api/basket-log').then(function(r){
+    var items=(r.items||[]);
+    $('blog-body').innerHTML = items.length
+      ? items.slice(0,20).map(function(b){
+          var cls=b.profit>=0?'pos':'neg';
+          return '<tr><td>'+b.at+'</td><td>'+b.symbol+'</td><td>'+b.layers+'</td><td class="'+cls+'">'+fmt$(b.profit)+'</td><td>'+b.reason+'</td></tr>';
+        }).join('')
+      : '<tr><td colspan="5" style="color:var(--muted)">— belum ada —</td></tr>';
+  });
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
